@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Feira da Lua - Sistema Autônomo de Gestão</title>
+  <meta name="description" content="Sistema autônomo da Feira da Lua - Gestão financeira, controle de presença e pagamentos." />
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            lua: {
+              gold: '#facc15',
+              dark: '#0d0e15',
+              card: '#121422',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0d0e15;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    .font-mono-numbers {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    @media print {
+      body { background: white !important; color: black !important; }
+      header, .no-print { display: none !important; }
+      .print-only { display: block !important; }
+    }
+  </style>
+
+  <!-- React 18 & Babel Standalone CDNs -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-[#0d0e15] text-slate-100 antialiased selection:bg-amber-500 selection:text-slate-950">
+  <div id="root"></div>
+
+  <!-- Script da Aplicação em React + Babel -->
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    // Formatação monetária BRL
+    const formatCurrency = (val) => {
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+    };
+
+    const formatDateShort = (dateStr) => {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}` : dateStr;
+    };
+
+    const formatDateFull = (dateStr) => {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dateStr;
+    };
+
+    // Dados Iniciais e Demonstrativos
+    const INITIAL_FEIRANTES = [
+      { id: 'ft-cq', nome: 'Cachorro Quente & Lanches', responsavel: 'Marcos Vinicius', segmento: 'Gastronomia', numeroBarraca: 'G-01', telefone: '(11) 98765-4321', email: 'cachorroquente@feiradalua.com.br', pixChave: '11987654321', status: 'ativo' },
+      { id: 'ft-1', nome: 'Ateliê Lua de Prata', responsavel: 'Carlos Eduardo Silva', segmento: 'Artesanato & Joias', numeroBarraca: 'A-01', telefone: '(11) 98123-4567', email: 'artesanato.silva@feiradalua.com.br', pixChave: '11981234567', status: 'ativo' },
+      { id: 'ft-2', nome: 'Doces Caseiros Dona Mari', responsavel: 'Mariana Duarte', segmento: 'Doces & Confeitaria', numeroBarraca: 'A-04', telefone: '(11) 97654-3210', email: 'doces.lua@feiradalua.com.br', pixChave: 'mariana.doces@gmail.com', status: 'ativo' },
+      { id: 'ft-3', nome: 'Pastel Gourmet & Caldo de Cana', responsavel: 'Takao Sato', segmento: 'Gastronomia', numeroBarraca: 'B-02', telefone: '(11) 99876-1122', email: 'takao.pastel@gmail.com', pixChave: 'takao.pix@gmail.com', status: 'ativo' },
+      { id: 'ft-4', nome: 'Cervejaria Lua Cheia', responsavel: 'Rodrigo Albuquerque', segmento: 'Bebidas Artesanais', numeroBarraca: 'B-06', telefone: '(11) 99345-6789', email: 'rodrigo.luacheia@gmail.com', pixChave: '12.345.678/0001-99', status: 'ativo' },
+      { id: 'ft-5', nome: 'Queijos & Defumados da Serra', responsavel: 'Aparecida Mendes', segmento: 'Empório & Queijaria', numeroBarraca: 'C-01', telefone: '(11) 98456-7890', email: 'queijos.serra@hotmail.com', pixChave: 'cida.mendes@hotmail.com', status: 'ativo' },
+      { id: 'ft-6', nome: 'Moda Boho & Tricô Chic', responsavel: 'Fernanda Lima', segmento: 'Vestuário & Moda', numeroBarraca: 'C-05', telefone: '(11) 97234-5678', email: 'fernanda.boho@gmail.com', pixChave: '11972345678', status: 'ativo' },
+    ];
+
+    const DEMO_FEIRAS = [
+      { id: 'feira-13', nome: 'Feira da Lua - 15/10', data: '2026-10-15', local: 'Praça Central da Matriz', taxaPadrao: 55.0 },
+      { id: 'feira-12', nome: 'Feira da Lua - 08/10', data: '2026-10-08', local: 'Praça Central da Matriz', taxaPadrao: 55.0 },
+      { id: 'feira-11', nome: 'Feira da Lua - 01/10', data: '2026-10-01', local: 'Praça Central da Matriz', taxaPadrao: 32.0 },
+      { id: 'feira-10', nome: 'Feira da Lua - 24/09 (Chuva)', data: '2026-09-24', local: 'Praça Central da Matriz', taxaPadrao: 0.0, observacoes: 'CANCELADO' },
+      { id: 'feira-9', nome: 'Feira da Lua - 17/09', data: '2026-09-17', local: 'Praça Central da Matriz', taxaPadrao: 55.0 },
+      { id: 'feira-8', nome: 'Feira da Lua - 10/09 (Cancelada)', data: '2026-09-10', local: 'Praça Central da Matriz', taxaPadrao: 0.0, observacoes: 'CANCELADO' },
+      { id: 'feira-7', nome: 'Feira da Lua - 03/09', data: '2026-09-03', local: 'Praça Central da Matriz', taxaPadrao: 55.0 },
+    ];
+
+    const DEMO_PRESENCAS = [
+      { id: 'pp-cq-13', feiraId: 'feira-13', feiranteId: 'ft-cq', statusPresenca: 'presente', statusPagamento: 'pendente', valorCobrado: 55.0, valorPago: 0.0 },
+      { id: 'pp-cq-12', feiraId: 'feira-12', feiranteId: 'ft-cq', statusPresenca: 'presente', statusPagamento: 'pendente', valorCobrado: 55.0, valorPago: 0.0 },
+      { id: 'pp-cq-11', feiraId: 'feira-11', feiranteId: 'ft-cq', statusPresenca: 'presente', statusPagamento: 'pendente', valorCobrado: 32.0, valorPago: 0.0 },
+      { id: 'pp-cq-7', feiraId: 'feira-7', feiranteId: 'ft-cq', statusPresenca: 'presente', statusPagamento: 'pendente', valorCobrado: 55.0, valorPago: 0.0 },
+      { id: 'pp-ft1-13', feiraId: 'feira-13', feiranteId: 'ft-1', statusPresenca: 'presente', statusPagamento: 'pago', valorCobrado: 55.0, valorPago: 55.0, formaPagamento: 'pix' },
+      { id: 'pp-ft2-13', feiraId: 'feira-13', feiranteId: 'ft-2', statusPresenca: 'presente', statusPagamento: 'pago', valorCobrado: 55.0, valorPago: 55.0, formaPagamento: 'dinheiro' },
+      { id: 'pp-ft3-13', feiraId: 'feira-13', feiranteId: 'ft-3', statusPresenca: 'presente', statusPagamento: 'pago', valorCobrado: 55.0, valorPago: 55.0, formaPagamento: 'cartao' },
+    ];
+
+    function App() {
+      // Estado do Usuário Autenticado
+      const [currentUser, setCurrentUser] = useState(() => {
+        try {
+          const s = localStorage.getItem('lua_standalone_user');
+          return s ? JSON.parse(s) : null;
+        } catch { return null; }
+      });
+
+      // Feiras (Inicia zerado por padrão, ou restaura)
+      const [feiras, setFeiras] = useState(() => {
+        try {
+          const s = localStorage.getItem('lua_standalone_feiras');
+          return s ? JSON.parse(s) : [];
+        } catch { return []; }
+      });
+
+      // Feirantes
+      const [feirantes, setFeirantes] = useState(() => {
+        try {
+          const s = localStorage.getItem('lua_standalone_feirantes');
+          return s ? JSON.parse(s) : INITIAL_FEIRANTES;
+        } catch { return INITIAL_FEIRANTES; }
+      });
+
+      // Registros de Presença e Pagamento
+      const [presencas, setPresencas] = useState(() => {
+        try {
+          const s = localStorage.getItem('lua_standalone_presencas');
+          return s ? JSON.parse(s) : [];
+        } catch { return []; }
+      });
+
+      // Despesas próprias dos feirantes
+      const [despesas, setDespesas] = useState(() => {
+        try {
+          const s = localStorage.getItem('lua_standalone_despesas');
+          return s ? JSON.parse(s) : [];
+        } catch { return []; }
+      });
+
+      // Persistência em LocalStorage
+      useEffect(() => {
+        localStorage.setItem('lua_standalone_feiras', JSON.stringify(feiras));
+      }, [feiras]);
+      useEffect(() => {
+        localStorage.setItem('lua_standalone_presencas', JSON.stringify(presencas));
+      }, [presencas]);
+      useEffect(() => {
+        localStorage.setItem('lua_standalone_despesas', JSON.stringify(despesas));
+      }, [despesas]);
+      useEffect(() => {
+        if (currentUser) localStorage.setItem('lua_standalone_user', JSON.stringify(currentUser));
+        else localStorage.removeItem('lua_standalone_user');
+      }, [currentUser]);
+
+      // Login form state
+      const [loginEmail, setLoginEmail] = useState('');
+      const [loginSenha, setLoginSenha] = useState('');
+      const [loginRole, setLoginRole] = useState('admin');
+      const [loginErro, setLoginErro] = useState('');
+
+      // UI States
+      const [abaFeirante, setAbaFeirante] = useState('pagar');
+      const [taxaSelecionada, setTaxaSelecionada] = useState(null);
+      const [formaFeirante, setFormaFeirante] = useState('pix');
+      const [comprovanteFeirante, setComprovanteFeirante] = useState('');
+      const [sucessoMsg, setSucessoMsg] = useState('');
+
+      // Despesas form
+      const [despDesc, setDespDesc] = useState('');
+      const [despCat, setDespCat] = useState('insumos');
+      const [despValor, setDespValor] = useState('');
+      const [despForma, setDespForma] = useState('pix');
+
+      const chavePixOrg = 'financeiro@feiradalua.com.br';
+
+      // Executar Login com senha
+      const handleLogin = (e) => {
+        e.preventDefault();
+        setLoginErro('');
+        const email = loginEmail.trim().toLowerCase();
+        const senha = loginSenha.trim();
+
+        if (loginRole === 'admin') {
+          if (email === 'admin@feiradalua.com.br' && senha === 'admin') {
+            setCurrentUser({ id: 'admin-1', name: 'Organizador Geral', email, role: 'admin' });
+            return;
+          }
+          setLoginErro('Credenciais inválidas de Administrador (padrão: admin@feiradalua.com.br / senha: admin)');
+        } else {
+          const ft = feirantes.find(f => f.email.toLowerCase() === email);
+          if (ft && (senha === 'feira' || senha === '123456')) {
+            setCurrentUser({ id: `user-${ft.id}`, name: `${ft.responsavel} (${ft.nome})`, email: ft.email, role: 'feirante', feiranteId: ft.id });
+            return;
+          }
+          setLoginErro('Credenciais inválidas de Feirante (ex: cachorroquente@feiradalua.com.br / senha: feira)');
+        }
+      };
+
+      const handleLogout = () => {
+        setCurrentUser(null);
+      };
+
+      // Carregar e Zerar
+      const carregarDemonstracao = () => {
+        setFeiras(DEMO_FEIRAS);
+        setPresencas(DEMO_PRESENCAS);
+      };
+
+      const zerarTudo = () => {
+        setFeiras([]);
+        setPresencas([]);
+        setDespesas([]);
+      };
+
+      // Cálculos de KPIs do Admin
+      const kpis = useMemo(() => {
+        let totalDinheiro = 0;
+        let totalPix = 0;
+        let totalCartao = 0;
+        let totalPendente = 0;
+
+        presencas.forEach(p => {
+          if (p.statusPagamento === 'pago') {
+            if (p.formaPagamento === 'dinheiro') totalDinheiro += p.valorPago;
+            else if (p.formaPagamento === 'cartao') totalCartao += p.valorPago;
+            else totalPix += p.valorPago;
+          } else if (p.statusPagamento === 'pendente') {
+            totalPendente += Math.max(0, p.valorCobrado - p.valorPago);
+          }
+        });
+
+        return {
+          totalFeiras: feiras.length,
+          totalDinheiro,
+          totalPix,
+          totalCartao,
+          saldoGeral: totalDinheiro + totalPix + totalCartao,
+          totalPendente,
+        };
+      }, [feiras, presencas]);
+
+      // Relatório de Pendentes
+      const relatorioPendentes = useMemo(() => {
+        const lista = [];
+        presencas.forEach(p => {
+          if (p.statusPagamento === 'pendente' && (p.valorCobrado - p.valorPago) > 0) {
+            const feira = feiras.find(f => f.id === p.feiraId);
+            const feirante = feirantes.find(f => f.id === p.feiranteId);
+            if (feira && feirante && feirante.status !== 'inativo') {
+              lista.push({
+                id: p.id,
+                feiraId: feira.id,
+                feiraData: feira.data,
+                feiranteNome: feirante.nome,
+                feiranteContato: feirante.telefone,
+                statusPresenca: p.statusPresenca,
+                valorDevido: p.valorCobrado - p.valorPago,
+              });
+            }
+          }
+        });
+        return lista;
+      }, [presencas, feiras, feirantes]);
+
+      // Dados do Feirante Logado
+      const feiranteAtual = currentUser?.feiranteId ? feirantes.find(f => f.id === currentUser.feiranteId) : null;
+      const minhasDespesas = despesas.filter(d => d.feiranteId === currentUser?.feiranteId);
+      const totalMinhasDespesas = minhasDespesas.reduce((acc, c) => acc + c.valor, 0);
+
+      // Pagamento efetuado pelo Feirante
+      const pagarTaxaFeirante = (feiraId, valor) => {
+        setPresencas(prev => {
+          const idx = prev.findIndex(p => p.feiraId === feiraId && p.feiranteId === currentUser.feiranteId);
+          const registroAtualizado = {
+            id: idx >= 0 ? prev[idx].id : `pp-${Date.now()}`,
+            feiraId,
+            feiranteId: currentUser.feiranteId,
+            statusPresenca: 'presente',
+            statusPagamento: 'pago',
+            valorCobrado: valor,
+            valorPago: valor,
+            formaPagamento: formaFeirante,
+            dataPagamento: new Date().toISOString(),
+          };
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = registroAtualizado;
+            return copy;
+          }
+          return [registroAtualizado, ...prev];
+        });
+
+        setSucessoMsg(`Pagamento de ${formatCurrency(valor)} efetuado com sucesso via ${formaFeirante.toUpperCase()}!`);
+        setTaxaSelecionada(null);
+        setTimeout(() => setSucessoMsg(''), 4000);
+      };
+
+      // Desistir da feira
+      const desistirFeira = (feiraId) => {
+        setPresencas(prev => {
+          const idx = prev.findIndex(p => p.feiraId === feiraId && p.feiranteId === currentUser.feiranteId);
+          const reg = {
+            id: idx >= 0 ? prev[idx].id : `pp-${Date.now()}`,
+            feiraId,
+            feiranteId: currentUser.feiranteId,
+            statusPresenca: 'desistente',
+            statusPagamento: 'cancelado',
+            valorCobrado: 0,
+            valorPago: 0,
+            formaPagamento: 'isento',
+          };
+          if (idx >= 0) {
+            const c = [...prev];
+            c[idx] = reg;
+            return c;
+          }
+          return [reg, ...prev];
+        });
+        setSucessoMsg('Desistência registrada sem ônus de cobrança.');
+        setTimeout(() => setSucessoMsg(''), 4000);
+      };
+
+      // Salvar Despesa
+      const salvarDespesa = (e) => {
+        e.preventDefault();
+        const val = parseFloat(despValor);
+        if (!despDesc || isNaN(val) || val <= 0) return;
+        const nova = {
+          id: `desp-${Date.now()}`,
+          feiranteId: currentUser.feiranteId,
+          descricao: despDesc,
+          categoria: despCat,
+          valor: val,
+          formaPagamento: despForma,
+          data: new Date().toISOString().split('T')[0],
+        };
+        setDespesas([nova, ...despesas]);
+        setDespDesc('');
+        setDespValor('');
+      };
+
+      // TELA DE LOGIN SE NÃO ESTIVER AUTENTICADO
+      if (!currentUser) {
+        return (
+          <div className="min-h-screen flex flex-col justify-center items-center p-4">
+            <div className="w-full max-w-md bg-[#121422] border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl">
+              <div className="text-center mb-6">
+                <div className="inline-flex w-14 h-14 rounded-full bg-gradient-to-tr from-[#161a2b] to-[#252c4a] border border-amber-500/50 items-center justify-center text-2xl text-amber-400 mb-2">
+                  🌙
+                </div>
+                <h1 className="text-xl font-black text-white">FEIRA DA <span className="text-[#facc15]">LUA</span></h1>
+                <p className="text-xs text-slate-400">● Controle Cósmico de Feiras (Autônomo)</p>
+              </div>
+
+              {loginErro && (
+                <div className="p-3 mb-4 rounded-xl bg-rose-950/60 border border-rose-500/40 text-xs text-rose-300">
+                  {loginErro}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2 p-1 bg-[#0b0d16] border border-slate-800 rounded-xl mb-4">
+                <button
+                  type="button"
+                  onClick={() => { setLoginRole('admin'); setLoginEmail('admin@feiradalua.com.br'); setLoginSenha('admin'); }}
+                  className={`py-2 text-xs font-bold rounded-lg ${loginRole === 'admin' ? 'bg-[#facc15] text-slate-950' : 'text-slate-400'}`}
+                >
+                  Admin Geral
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setLoginRole('feirante'); setLoginEmail('cachorroquente@feiradalua.com.br'); setLoginSenha('feira'); }}
+                  className={`py-2 text-xs font-bold rounded-lg ${loginRole === 'feirante' ? 'bg-cyan-500 text-slate-950' : 'text-slate-400'}`}
+                >
+                  Feirante
+                </button>
+              </div>
+
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">E-mail</label>
+                  <input
+                    type="email"
+                    required
+                    value={loginEmail}
+                    onChange={e => setLoginEmail(e.target.value)}
+                    placeholder="email@feiradalua.com.br"
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-[#0d0f19] border border-slate-700 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">Senha (Obrigatória)</label>
+                  <input
+                    type="password"
+                    required
+                    value={loginSenha}
+                    onChange={e => setLoginSenha(e.target.value)}
+                    placeholder="Digite sua senha..."
+                    className="w-full px-3.5 py-2.5 rounded-lg bg-[#0d0f19] border border-slate-700 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl font-bold text-sm bg-[#facc15] hover:bg-amber-400 text-slate-950 transition-colors shadow-lg cursor-pointer"
+                >
+                  Entrar no Sistema
+                </button>
+              </form>
+
+              <div className="mt-4 pt-4 border-t border-slate-800 text-[11px] text-slate-400 text-center">
+                Admin: <strong className="text-white">admin@feiradalua.com.br</strong> / senha: <strong className="text-white">admin</strong><br/>
+                Feirante: <strong className="text-white">cachorroquente@feiradalua.com.br</strong> / senha: <strong className="text-white">feira</strong>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // TELA PRINCIPAL (ADMIN OU FEIRANTE)
+      return (
+        <div className="min-h-screen flex flex-col">
+          {/* Header */}
+          <header className="sticky top-0 z-40 bg-[#0d0e15]/95 backdrop-blur border-b border-slate-800 px-4 py-3">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#161a2b] to-[#252c4a] border border-amber-500/50 flex items-center justify-center text-lg text-amber-400">
+                  🌙
+                </div>
+                <div>
+                  <div className="text-base font-black text-white">FEIRA DA <span className="text-[#facc15]">LUA</span></div>
+                  <div className="text-[10px] text-slate-400">● Controle Cósmico de Feiras</div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-300 hidden sm:inline">{currentUser.name}</span>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-rose-900 bg-rose-950/40 text-rose-300 hover:bg-rose-900 transition-colors"
+                >
+                  Sair
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+            {sucessoMsg && (
+              <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-500 text-emerald-300 text-xs font-bold">
+                ✓ {sucessoMsg}
+              </div>
+            )}
+
+            {/* VISÃO DO ADMINISTRADOR */}
+            {currentUser.role === 'admin' ? (
+              <div className="space-y-6">
+                {/* Hero com Imprimir */}
+                <div className="p-6 rounded-2xl bg-[#121424] border border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h1 className="text-lg font-black text-white flex items-center gap-2">
+                      🌙 Relatório Geral de Feiras
+                    </h1>
+                    <p className="text-xs text-slate-400">Prestação de contas consolidada das feiras realizadas, saldos em Pix, Dinheiro e cobranças.</p>
+                  </div>
+                  <button
+                    onClick={() => window.print()}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-[#facc15] hover:bg-amber-400 text-slate-950 shadow"
+                  >
+                    🖨️ Imprimir Relatório
+                  </button>
+                </div>
+
+                {/* 4 KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                  <div className="p-5 rounded-2xl bg-[#0f111d] border border-slate-800">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase">TOTAL DE FEIRAS</div>
+                    <div className="text-3xl font-extrabold text-white font-mono-numbers mt-2">{kpis.totalFeiras}</div>
+                  </div>
+                  <div className="p-5 rounded-2xl bg-[#0f111d] border border-slate-800">
+                    <div className="text-[11px] font-bold text-emerald-400 uppercase">TOTAL DINHEIRO (LIQ)</div>
+                    <div className="text-3xl font-extrabold text-emerald-400 font-mono-numbers mt-2">{formatCurrency(kpis.totalDinheiro)}</div>
+                  </div>
+                  <div className="p-5 rounded-2xl bg-[#0f111d] border border-slate-800">
+                    <div className="text-[11px] font-bold text-cyan-400 uppercase">TOTAL PIX (LIQ)</div>
+                    <div className="text-3xl font-extrabold text-cyan-400 font-mono-numbers mt-2">{formatCurrency(kpis.totalPix)}</div>
+                  </div>
+                  <div className="p-5 rounded-2xl bg-[#0f111d] border border-slate-800">
+                    <div className="text-[11px] font-bold text-[#facc15] uppercase">SALDO LÍQUIDO GERAL</div>
+                    <div className="text-3xl font-extrabold text-[#facc15] font-mono-numbers mt-2">{formatCurrency(kpis.saldoGeral)}</div>
+                  </div>
+                </div>
+
+                {/* Ações de Estado */}
+                <div className="flex gap-2 text-xs">
+                  {feiras.length === 0 ? (
+                    <button onClick={carregarDemonstracao} className="px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+                      ✨ Carregar Dados da Planilha Real
+                    </button>
+                  ) : (
+                    <button onClick={zerarTudo} className="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                      🔄 Zerar Histórico & Saldo (R$ 0,00)
+                    </button>
+                  )}
+                </div>
+
+                {/* Relatório de Pendentes */}
+                <div className="p-5 rounded-2xl bg-[#0d0f19] border border-slate-800 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-sm font-bold text-white">Relatório de Pendentes para Cobrança</h2>
+                    <span className="text-xs px-2.5 py-1 rounded-full bg-rose-950/60 text-rose-300 border border-rose-800 font-bold">
+                      Total Pendente: {formatCurrency(kpis.totalPendente)}
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#121422] text-slate-400">
+                        <tr>
+                          <th className="p-3">FEIRA (DATA)</th>
+                          <th className="p-3">FEIRANTE</th>
+                          <th className="p-3">CONTATO</th>
+                          <th className="p-3 text-right">VALOR PENDENTE</th>
+                          <th className="p-3 text-center">AÇÃO</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {relatorioPendentes.length === 0 ? (
+                          <tr><td colSpan="5" className="p-4 text-center text-slate-500">Nenhum pagamento pendente no momento.</td></tr>
+                        ) : (
+                          relatorioPendentes.map(p => (
+                            <tr key={p.id} className="hover:bg-slate-800/40">
+                              <td className="p-3 font-mono text-slate-200">{formatDateFull(p.feiraData)}</td>
+                              <td className="p-3 font-bold text-white">{p.feiranteNome}</td>
+                              <td className="p-3 font-mono text-slate-400">{p.feiranteContato || '-'}</td>
+                              <td className="p-3 text-right font-bold text-rose-400">{formatCurrency(p.valorDevido)}</td>
+                              <td className="p-3 text-center">
+                                <a
+                                  href={`https://wa.me/55${(p.feiranteContato || '').replace(/\D/g, '')}?text=Olá! Lembramos da pendência de ${formatCurrency(p.valorDevido)} na Feira da Lua.`}
+                                  target="_blank"
+                                  className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold"
+                                >
+                                  WhatsApp
+                                </a>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Planilha Matriz */}
+                <div className="p-5 rounded-2xl bg-[#0d0f19] border border-slate-800 space-y-3">
+                  <h2 className="text-sm font-bold text-white">Planilha Matriz Cruzada de Feiras</h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-[#16192c] text-slate-200">
+                          <th className="p-2.5 border-r border-slate-800">Feirante</th>
+                          {feiras.map(f => (
+                            <th key={f.id} className="p-2.5 text-center border-r border-slate-800 min-w-[85px]">
+                              {formatDateShort(f.data)}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800 font-mono-numbers">
+                        {feirantes.map(ft => (
+                          <tr key={ft.id} className="hover:bg-slate-800/30">
+                            <td className="p-2.5 font-sans font-bold text-slate-200 border-r border-slate-800">
+                              {ft.nome}
+                            </td>
+                            {feiras.map(f => {
+                              const isCancelado = f.observacoes?.includes('CANCELADO');
+                              if (isCancelado) {
+                                return <td key={f.id} className="p-2 text-center border-r border-slate-800 bg-red-600 text-white font-bold text-[10px]">CANCELADO</td>;
+                              }
+                              const reg = presencas.find(p => p.feiraId === f.id && p.feiranteId === ft.id);
+                              const isPago = reg?.statusPagamento === 'pago';
+                              return (
+                                <td key={f.id} className={`p-2 text-center border-r border-slate-800 ${isPago ? 'bg-cyan-950 text-cyan-300 font-bold' : 'bg-amber-950/40 text-amber-300'}`}>
+                                  {isPago ? formatCurrency(reg.valorPago) : formatCurrency(f.taxaPadrao)}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* VISÃO DO FEIRANTE EXPOSITOR */
+              <div className="space-y-6">
+                {/* Perfil da Barraca */}
+                <div className="p-6 rounded-2xl bg-[#121424] border border-slate-800 flex justify-between items-center">
+                  <div>
+                    <h1 className="text-xl font-bold text-white">{feiranteAtual?.nome}</h1>
+                    <p className="text-xs text-slate-400 mt-1">Barraca {feiranteAtual?.numeroBarraca} · {feiranteAtual?.responsavel}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs text-slate-400">Total Despesas Próprias</span>
+                    <div className="text-lg font-bold text-purple-400 font-mono-numbers">{formatCurrency(totalMinhasDespesas)}</div>
+                  </div>
+                </div>
+
+                {/* Abas do Feirante */}
+                <div className="flex gap-2 border-b border-slate-800 pb-2">
+                  <button
+                    onClick={() => setAbaFeirante('pagar')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold ${abaFeirante === 'pagar' ? 'bg-amber-500 text-slate-950' : 'text-slate-400'}`}
+                  >
+                    💳 Pagar Taxa da Feira (Dinheiro, Cartão ou Pix)
+                  </button>
+                  <button
+                    onClick={() => setAbaFeirante('despesas')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold ${abaFeirante === 'despesas' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}
+                  >
+                    📉 Minhas Despesas de Operação
+                  </button>
+                </div>
+
+                {/* Aba 1: Pagamento pelo Feirante */}
+                {abaFeirante === 'pagar' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <h3 className="text-xs font-bold text-slate-300 uppercase">Minhas Taxas da Feira</h3>
+                      {feiras.map(f => {
+                        const reg = presencas.find(p => p.feiraId === f.id && p.feiranteId === currentUser.feiranteId);
+                        const isPago = reg?.statusPagamento === 'pago';
+                        const isDesistente = reg?.statusPresenca === 'desistente';
+
+                        return (
+                          <div key={f.id} className="p-4 rounded-xl bg-[#131522] border border-slate-800 flex justify-between items-center">
+                            <div>
+                              <div className="text-xs font-mono text-amber-300">{formatDateFull(f.data)}</div>
+                              <div className="text-sm font-bold text-white">{f.nome}</div>
+                              <div className="text-xs text-slate-400">Taxa: {formatCurrency(f.taxaPadrao)}</div>
+                            </div>
+                            <div>
+                              {isPago ? (
+                                <span className="px-2.5 py-1 rounded bg-emerald-950 text-emerald-300 font-bold text-xs border border-emerald-800">
+                                  ✓ Quitado ({reg.formaPagamento})
+                                </span>
+                              ) : isDesistente ? (
+                                <span className="px-2.5 py-1 rounded bg-purple-950 text-purple-300 text-xs">
+                                  Desistência
+                                </span>
+                              ) : (
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => desistirFeira(f.id)}
+                                    className="px-2 py-1 rounded text-xs text-rose-400 hover:bg-rose-950/40"
+                                  >
+                                    Desistir
+                                  </button>
+                                  <button
+                                    onClick={() => setTaxaSelecionada(f)}
+                                    className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow"
+                                  >
+                                    Pagar
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Formulário de Quitação com 3 Opções */}
+                    <div className="p-5 rounded-xl bg-[#141728] border border-amber-500/30">
+                      {taxaSelecionada ? (
+                        <div className="space-y-4">
+                          <h3 className="text-sm font-bold text-white">Pagar Taxa: {taxaSelecionada.nome}</h3>
+                          <div className="text-xl font-mono font-bold text-amber-400">{formatCurrency(taxaSelecionada.taxaPadrao)}</div>
+
+                          <div>
+                            <label className="block text-xs text-slate-300 mb-1">Como você deseja pagar?</label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {['pix', 'cartao', 'dinheiro'].map(forma => (
+                                <button
+                                  key={forma}
+                                  type="button"
+                                  onClick={() => setFormaFeirante(forma)}
+                                  className={`py-2 rounded-lg text-xs font-bold uppercase ${formaFeirante === forma ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-slate-400'}`}
+                                >
+                                  {forma}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {formaFeirante === 'pix' && (
+                            <div className="p-3 bg-[#0d0f19] rounded-lg text-xs space-y-1">
+                              <div>Chave Pix: <strong className="text-cyan-300 font-mono">{chavePixOrg}</strong></div>
+                              <div className="text-slate-400">Copie a chave e faça o pagamento pelo seu app do banco.</div>
+                            </div>
+                          )}
+
+                          {formaFeirante === 'cartao' && (
+                            <div className="p-3 bg-[#0d0f19] rounded-lg text-xs text-slate-400">
+                              O valor será debitado no seu cartão de débito ou crédito registrado.
+                            </div>
+                          )}
+
+                          {formaFeirante === 'dinheiro' && (
+                            <div className="p-3 bg-[#0d0f19] rounded-lg text-xs text-slate-400">
+                              Entregue o dinheiro físico diretamente na barraca da coordenação.
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() => pagarTaxaFeirante(taxaSelecionada.id, taxaSelecionada.taxaPadrao)}
+                            className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs"
+                          >
+                            Confirmar Pagamento via {formaFeirante.toUpperCase()}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center text-xs text-slate-400">
+                          Selecione uma feira ao lado para realizar o pagamento.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* Aba 2: Lançar Despesas do Feirante */
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <form onSubmit={salvarDespesa} className="p-5 rounded-xl bg-[#141728] border border-slate-800 space-y-3">
+                      <h3 className="text-sm font-bold text-white">Cadastrar Despesa</h3>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Descrição (ex: Pães, Embalagens)"
+                        value={despDesc}
+                        onChange={e => setDespDesc(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-[#0d0f19] border border-slate-700 text-xs"
+                      />
+                      <input
+                        type="number"
+                        step="0.50"
+                        required
+                        placeholder="Valor R$"
+                        value={despValor}
+                        onChange={e => setDespValor(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-[#0d0f19] border border-slate-700 text-xs font-mono"
+                      />
+                      <select value={despCat} onChange={e => setDespCat(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-[#0d0f19] border border-slate-700 text-xs">
+                        <option value="insumos">Insumos / Alimentos</option>
+                        <option value="embalagens">Embalagens</option>
+                        <option value="transporte">Transporte</option>
+                        <option value="outros">Outros</option>
+                      </select>
+                      <button type="submit" className="w-full py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs">
+                        Adicionar Despesa
+                      </button>
+                    </form>
+
+                    <div className="md:col-span-2 p-5 rounded-xl bg-[#0d0f19] border border-slate-800">
+                      <h3 className="text-sm font-bold text-white mb-3">Minhas Despesas Registradas</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-[#141727] text-slate-400">
+                            <tr>
+                              <th className="p-2.5">Descrição</th>
+                              <th className="p-2.5">Categoria</th>
+                              <th className="p-2.5 text-right">Valor</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800">
+                            {minhasDespesas.length === 0 ? (
+                              <tr><td colSpan="3" className="p-4 text-center text-slate-500">Nenhuma despesa lançada ainda.</td></tr>
+                            ) : (
+                              minhasDespesas.map(d => (
+                                <tr key={d.id}>
+                                  <td className="p-2.5 font-bold text-white">{d.descricao}</td>
+                                  <td className="p-2.5 text-slate-400">{d.categoria}</td>
+                                  <td className="p-2.5 text-right font-bold text-rose-400 font-mono">{formatCurrency(d.valor)}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </main>
+
+          <footer className="border-t border-slate-800 bg-[#090b12] py-4 text-center text-xs text-slate-500">
+            Feira da Lua · Sistema Autônomo para Navegador · Dados salvos no seu computador via LocalStorage
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

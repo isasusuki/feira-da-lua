@@ -1,0 +1,6 @@
+{
+  "name": "Feira da Lua - Gestão de Feiras e Feirantes",
+  "description": "Sistema de gestão financeira, controle de presença e pagamentos para a Feira da Lua com controle de acesso para Administradores e Feirantes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
